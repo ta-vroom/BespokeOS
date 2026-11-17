@@ -31,6 +31,9 @@
       "/nix/store" = "nix-store";
     };
 
+  # boot is systemd-boot + UKI
+  boot.loader.grub.enable = false;
+
   system.image.id = "appliance";
   system.nixos.distroName = "Beskopix";
 
@@ -41,6 +44,7 @@
       size = "2G";
     in
     {
+      enable = true;
       name = config.system.image.id;
       split = true;
 
