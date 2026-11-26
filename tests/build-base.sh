@@ -17,6 +17,7 @@ nix build --impure -o result-v1 --expr '
   }).config.system.build.image
 '
 zstd -d -f result-v1/bespokeos_1.0.0.raw.zst -o ./disk-test.raw
+chmod 644 ./disk-test.raw
 
 {
   inspect_disk ./disk-test.raw "v1.0.0"
