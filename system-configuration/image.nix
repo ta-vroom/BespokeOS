@@ -36,7 +36,6 @@
 
   # First-boot initrd and runtime systemd-repart configuration
   boot.initrd.systemd = {
-    enable = true;
     repart.enable = true;
     extraBin."mkfs.xfs" = "${pkgs.xfsprogs}/bin/mkfs.xfs";
     services.systemd-repart = {
