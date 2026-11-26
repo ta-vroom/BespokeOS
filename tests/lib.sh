@@ -38,13 +38,13 @@ wait_ssh() {
   return 1
 }
 
-# inspect_store <squashfs-image-or-device> <label>
-# Mounts a nix-store squashfs partition read-only and reports its contents.
+# inspect_store <erofs-image-or-device> <label>
+# Mounts a nix-store erofs partition read-only and reports its contents.
 inspect_store() {
   local src=$1 label=$2
   echo "---- [$label] nix-store contents ----"
   sudo mkdir -p /mnt/inspect
-  if sudo mount -t squashfs -o loop,ro "$src" /mnt/inspect 2>/dev/null; then
+  if sudo mount -t erofs -o loop,ro "$src" /mnt/inspect 2>/dev/null; then
     local store_dir=/mnt/inspect
     if [ -d /mnt/inspect/nix/store ]; then
       store_dir=/mnt/inspect/nix/store
@@ -53,7 +53,7 @@ inspect_store() {
     echo "Total store paths: $(find "$store_dir" -maxdepth 1 -mindepth 1 2>/dev/null | wc -l)"
     sudo umount /mnt/inspect
   else
-    echo "(could not mount $src as squashfs)"
+    echo "(could not mount $src as erofs)"
     file "$src" || true
   fi
 }
@@ -69,7 +69,7 @@ inspect_disk() {
     sudo blkid "$p" || true
   done
   for p in "${loop}"p*; do
-    if [ "$(sudo blkid -s TYPE -o value "$p" 2>/dev/null)" = "squashfs" ]; then
+    if [ "$(sudo blkid -s TYPE -o value "$p" 2>/dev/null)" = "erofs" ]; then
       inspect_store "$p" "$label"
       break
     fi

@@ -6,6 +6,15 @@
   ...
 }:
 
+let
+  repartInitrdScript = pkgs.writeShellScript "systemd-repart-initrd" ''
+    set -eux
+    part=$(${pkgs.coreutils}/bin/readlink -f /dev/disk/by-partlabel/boot)
+    disk=/dev/$(${pkgs.coreutils}/bin/basename "$(${pkgs.coreutils}/bin/dirname "$(${pkgs.coreutils}/bin/readlink -f "/sys/class/block/$(${pkgs.coreutils}/bin/basename "$part")")")")
+    ${config.boot.initrd.systemd.package}/bin/systemd-repart --definitions=/etc/repart.d --dry-run=no "$disk"
+    ${config.boot.initrd.systemd.package}/bin/udevadm settle
+  '';
+in
 {
   imports = [
     (modulesPath + "/image/repart.nix")
@@ -24,7 +33,7 @@
     };
     "/nix/store" = {
       device = "/dev/disk/by-partlabel/nix-store_${config.system.image.version}";
-      fsType = "squashfs";
+      fsType = "erofs";
     };
   };
 
@@ -38,6 +47,10 @@
   boot.initrd.systemd = {
     repart.enable = true;
     extraBin."mkfs.xfs" = "${pkgs.xfsprogs}/bin/mkfs.xfs";
+    storePaths = [
+      repartInitrdScript
+      "${config.boot.initrd.systemd.package}/bin/udevadm"
+    ];
     services.systemd-repart = {
       requires = lib.mkForce [ "dev-disk-by\\x2dpartlabel-boot.device" ];
       after = lib.mkForce [
@@ -55,13 +68,7 @@
         StandardError = "journal+console";
         ExecStart = lib.mkForce [
           ""
-          "${pkgs.writeShellScript "systemd-repart-initrd" ''
-            set -eux
-            part=$(${pkgs.coreutils}/bin/readlink -f /dev/disk/by-partlabel/boot)
-            disk=/dev/$(${pkgs.coreutils}/bin/basename "$(${pkgs.coreutils}/bin/dirname "$(${pkgs.coreutils}/bin/readlink -f "/sys/class/block/$(${pkgs.coreutils}/bin/basename "$part")")")")
-            ${config.boot.initrd.systemd.package}/bin/systemd-repart --definitions=/etc/repart.d --dry-run=no "$disk"
-            ${config.boot.initrd.systemd.package}/bin/udevadm settle
-          ''}"
+          "${repartInitrdScript}"
         ];
       };
     };
@@ -142,7 +149,8 @@
             Type = "linux-generic";
             Label = "nix-store_${config.system.image.version}";
             Minimize = "best";
-            Format = "squashfs";
+            Format = "erofs";
+            Compression = "zstd";
             ReadOnly = "yes";
             SplitName = "nix-store";
           };

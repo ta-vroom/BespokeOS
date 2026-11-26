@@ -37,7 +37,7 @@ jobs:
       - name: Setup QEMU & dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf openssh-client python3 zstd squashfs-tools
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf openssh-client python3 zstd erofs-utils
 
           # Ensure KVM acceleration is accessible
           test -e /dev/kvm && sudo chmod 666 /dev/kvm || true
