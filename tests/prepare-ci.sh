@@ -9,6 +9,7 @@ cat > /tmp/ci-test-module.nix <<'EOF'
 {
   boot.kernelParams = [ "console=ttyS0,115200n8" ];
   boot.initrd.availableKernelModules = [ "virtio_pci" "virtio_blk" "virtio_net" "i6300esb" ];
+  boot.initrd.systemd.emergencyAccess = true;
 
   image.repart.partitions.esp.contents."/loader/loader.conf".source = lib.mkForce (
     builtins.toFile "loader.conf" ''

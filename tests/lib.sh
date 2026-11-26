@@ -11,7 +11,7 @@ SSH_OPTS=(
   -p 2222
 )
 
-FATAL_RE='You are in emergency mode|Give root password for maintenance|Please configure the system|Kernel panic|Timed out waiting for device|Failed to start .*systemd-repart\.service'
+FATAL_RE='You are in emergency mode|Give root password for maintenance|Please configure the system|Kernel panic|Timed out waiting for device|Failed to start .*(systemd-repart\.service|Repartition Root Disk)'
 
 ssh_guest() {
   ssh "${SSH_OPTS[@]}" root@127.0.0.1 "$@"

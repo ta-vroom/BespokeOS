@@ -28,7 +28,8 @@ def main() -> int:
         "systemctl --failed --no-pager --no-legend; "
         "systemctl status sshd.service systemd-repart.service systemd-bless-boot.service --no-pager -l; "
         "journalctl -b -u sshd.service -u systemd-repart.service -u systemd-bless-boot.service --no-pager; "
-        "lsblk -o NAME,PARTLABEL,FSTYPE,MOUNTPOINTS,SIZE; "
+        "ls -la /etc/repart.d; cat /etc/repart.d/* 2>/dev/null; "
+        "blkid; lsblk -o NAME,PARTLABEL,FSTYPE,MOUNTPOINTS,SIZE; "
         "findmnt; "
         "journalctl -b -p err -n 100 --no-pager; "
         'echo "__DIAG""_DONE__"\n'
@@ -57,7 +58,12 @@ def main() -> int:
                 break
             raw.extend(data)
             buf = ansi_re.sub(b"", buf + data).replace(b"\r", b"")
-            if not sent_user and re.search(rb"(?:^|\n)[^\n]*login:\s*$", buf):
+            if not sent_user and re.search(rb"Press Enter for maintenance", buf):
+                s.sendall(b"\n")
+                sent_user = True
+                sent_pass = True
+                buf = b""
+            elif not sent_user and re.search(rb"(?:^|\n)[^\n]*login:\s*$", buf):
                 s.sendall(b"root\n")
                 sent_user = True
                 buf = b""
