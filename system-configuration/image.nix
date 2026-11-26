@@ -52,14 +52,13 @@
       environment.TMPDIR = "/tmp";
       serviceConfig.ExecStart = lib.mkForce [
         ""
-        ''
-          ${pkgs.runtimeShell} -eu -c '
-            part=$(${pkgs.coreutils}/bin/readlink -f /dev/disk/by-partlabel/boot)
-            disk=/dev/$(${pkgs.coreutils}/bin/basename "$(${pkgs.coreutils}/bin/dirname "$(${pkgs.coreutils}/bin/readlink -f "/sys/class/block/$(${pkgs.coreutils}/bin/basename "$part")")")")
-            ${config.boot.initrd.systemd.package}/bin/systemd-repart --definitions=/etc/repart.d --dry-run=no "$disk"
-            ${config.boot.initrd.systemd.package}/bin/udevadm settle
-          '
-        ''
+        "${pkgs.writeShellScript "systemd-repart-initrd" ''
+          set -eu
+          part=$(${pkgs.coreutils}/bin/readlink -f /dev/disk/by-partlabel/boot)
+          disk=/dev/$(${pkgs.coreutils}/bin/basename "$(${pkgs.coreutils}/bin/dirname "$(${pkgs.coreutils}/bin/readlink -f "/sys/class/block/$(${pkgs.coreutils}/bin/basename "$part")")")")
+          ${config.boot.initrd.systemd.package}/bin/systemd-repart --definitions=/etc/repart.d --dry-run=no "$disk"
+          ${config.boot.initrd.systemd.package}/bin/udevadm settle
+        ''}"
       ];
     };
   };
