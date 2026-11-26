@@ -142,7 +142,7 @@ poweroff_guest() {
 }
 
 verify_mounts() {
-  ssh_guest 'test "$(findmnt -n -o SOURCE /)" = "$(blkid -t PARTLABEL=root -o device)"'
-  ssh_guest 'test "$(findmnt -n -o SOURCE -T /var)" = "$(blkid -t PARTLABEL=root -o device)"'
-  ssh_guest 'test "$(findmnt -n -o FSTYPE /etc)" = "overlay"'
+  ssh_guest 'test "$(findmnt -n -f -o SOURCE /)" = "$(blkid -t PARTLABEL=root -o device)"'
+  ssh_guest 'test "$(findmnt -n -f -o SOURCE -T /var)" = "$(blkid -t PARTLABEL=root -o device)"'
+  ssh_guest 'test "$(findmnt -n -f -o FSTYPE /etc)" = "overlay"'
 }

@@ -38,7 +38,7 @@ ssh_guest "blkid -t PARTLABEL=_empty"
 ssh_guest "blkid -t PARTLABEL=nix-store_1.0.0"
 ssh_guest "blkid -t PARTLABEL=root"
 ssh_guest "blkid -t PARTLABEL=boot"
-ssh_guest 'lsblk -no PARTLABEL "$(findmnt -n -o SOURCE /nix/store)" | grep -qx nix-store_1.0.0'
+ssh_guest 'lsblk -no PARTLABEL "$(findmnt -n -f -o SOURCE /nix/store)" | grep -qx nix-store_1.0.0'
 
 # 3. Verify persistent root (/ and /var) and /etc overlay are mounted and write test markers
 verify_mounts

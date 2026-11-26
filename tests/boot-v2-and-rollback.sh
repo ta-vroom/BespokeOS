@@ -43,7 +43,7 @@ echo "Booted Version: $BOOTED_VER"
 test "$BOOTED_VER" = "1.0.1"
 
 # Verify /nix/store is backed by nix-store_1.0.1 (Slot B)
-ssh_guest 'lsblk -no PARTLABEL "$(findmnt -n -o SOURCE /nix/store)" | grep -qx nix-store_1.0.1'
+ssh_guest 'lsblk -no PARTLABEL "$(findmnt -n -f -o SOURCE /nix/store)" | grep -qx nix-store_1.0.1'
 
 # Verify persistent root (/var) and /etc overlay survived the A -> B slot switch
 verify_mounts
@@ -102,7 +102,7 @@ echo "Rolled-back Booted Version: $ROLLBACK_VER"
 test "$ROLLBACK_VER" = "1.0.0"
 
 # Verify fallback booted Slot A (nix-store_1.0.0), v1.0.1 exhausted tries (+0-1), and state stayed intact
-ssh_guest 'lsblk -no PARTLABEL "$(findmnt -n -o SOURCE /nix/store)" | grep -qx nix-store_1.0.0'
+ssh_guest 'lsblk -no PARTLABEL "$(findmnt -n -f -o SOURCE /nix/store)" | grep -qx nix-store_1.0.0'
 ssh_guest 'ESP_DIR=$(bootctl --print-esp-path) && ls -la "$ESP_DIR/EFI/Linux/" && test -f "$ESP_DIR/EFI/Linux/bespokeos_1.0.1+0-1.efi"'
 ssh_guest 'test "$(cat /var/lib/persist-test)" = "var-persisted-from-1.0.0"'
 ssh_guest 'test "$(cat /etc/persist-etc-test)" = "etc-persisted-from-1.0.0"'

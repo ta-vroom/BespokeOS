@@ -8,7 +8,7 @@
 
 let
   repartInitrdScript = pkgs.writeShellScript "systemd-repart-initrd" ''
-    set -eux
+    set -eu
     part=$(${pkgs.coreutils}/bin/readlink -f /dev/disk/by-partlabel/boot)
     disk=/dev/$(${pkgs.coreutils}/bin/basename "$(${pkgs.coreutils}/bin/dirname "$(${pkgs.coreutils}/bin/readlink -f "/sys/class/block/$(${pkgs.coreutils}/bin/basename "$part")")")")
     ${config.boot.initrd.systemd.package}/bin/systemd-repart --definitions=/etc/repart.d --dry-run=no "$disk"
