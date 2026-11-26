@@ -7,7 +7,7 @@
 
 {
   system.stateVersion = config.system.nixos.release;
-  networking.hostName = "appliance";
+  networking.hostName = "bespokeos";
 
   imports = [
     ./desktop.nix

@@ -1,6 +1,7 @@
 {
   pkgs,
   config,
+  lib,
   ...
 }:
 
@@ -11,17 +12,20 @@
     transfers =
       let
         commonSource = {
-          Path = "http://localhost/";
+          Path = lib.mkDefault "https://github.com/ta-vroom/bespokeos/releases/latest/download/";
           Type = "url-file";
         };
 
         # Downloaded images need to be verified against a GPG signature by default
-        Transfer.Verify = "no";
+        Transfer = {
+          Verify = "no";
+          ProtectVersion = "%A";
+        };
       in
       {
         "10-nix-store" = {
           Source = commonSource // {
-            MatchPattern = [ "${config.system.image.id}_@v.nix-store.raw" ];
+            MatchPattern = [ "${config.system.image.id}_@v.nix-store.raw.zst" ];
           };
 
           Target = {
@@ -43,11 +47,17 @@
           };
           Target = {
             InstancesMax = 2;
-            MatchPattern = [ "${config.boot.uki.name}_@v.efi" ];
+            MatchPattern = [
+              "${config.boot.uki.name}_@v+@l-@d.efi"
+              "${config.boot.uki.name}_@v+@l.efi"
+              "${config.boot.uki.name}_@v.efi"
+            ];
 
-            Mode = "0444";
+            Mode = "0644";
             Path = "/EFI/Linux";
             PathRelativeTo = "boot";
+            TriesDone = 0;
+            TriesLeft = 3;
 
             Type = "regular-file";
           };

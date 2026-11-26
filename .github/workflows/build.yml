@@ -5,18 +5,37 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
-on: 
+on:
   workflow_dispatch:
-
-
+    inputs:
+      skip_tests:
+        description: "Skip e2e tests"
+        type: boolean
+        default: true
+  push:
+    branches: [ main ]
+  workflow_call:
+    inputs:
+      release_notes:
+        description: "Release notes listing updated packages"
+        required: false
+        type: string
 
 jobs:
-  nix-build:
+  test:
+    if: ${{ inputs.skip_tests != true }}
+    uses: ./.github/workflows/ci.yml
+
+  build_release:
+    needs: test
+    if: ${{ !cancelled() && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
+    name: Build Image
     permissions:
       contents: write
-    runs-on: ubuntu-latest
+      packages: write
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Enable unprivileged user namespaces
         run: |
@@ -31,6 +50,69 @@ jobs:
             experimental-features = nix-command flakes
             sandbox = false
 
-      - name: Build Command
-        run: | 
-          nix build .#image-v1
+      - name: Release Tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DATE=$(date +'%Y%m%d')
+
+          LATEST_NUM=$(gh release list --limit 100 --exclude-drafts --json tagName --jq '.[].tagName' \
+            | tr -d '\r' \
+            | sed -nE "s/^${DATE}$/0/p; s/^${DATE}\.([0-9]+)$/\1/p" \
+            | sort -n \
+            | tail -n 1)
+
+          # Ensure LATEST_NUM is strictly digits; otherwise treat as empty
+          if [[ ! "$LATEST_NUM" =~ ^[0-9]+$ ]]; then
+            LATEST_NUM=""
+          fi
+
+          if [ -z "$LATEST_NUM" ]; then
+            RELEASE_TAG="${DATE}"
+          else
+            RELEASE_TAG="${DATE}.$(( 10#$LATEST_NUM + 1 ))"
+          fi
+
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITHUB_ENV"
+
+      - name: Build Images
+        run: |
+          nix build --impure -o result-release --expr '
+            let
+              flake = builtins.getFlake (toString ./.);
+            in
+            (flake.nixosConfigurations.appliance.extendModules {
+              modules = [
+                { system.image.version = "'"${RELEASE_TAG}"'"; }
+              ];
+            }).config.system.build.sysupdate-package
+          '
+
+      - name: Sign and generate SHA256SUMS
+        env:
+          GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "$GPG_KEY" | gpg --batch --import
+
+          cp -L result-release/bespokeos_${{ env.RELEASE_TAG }}.efi .
+          cp -L result-release/bespokeos_${{ env.RELEASE_TAG }}.nix-store.raw.zst .
+          cp -L result-release/bespokeos_${{ env.RELEASE_TAG }}.raw.zst .
+          chmod 644 bespokeos_${{ env.RELEASE_TAG }}.*
+
+          sha256sum bespokeos_${{ env.RELEASE_TAG }}.* > SHA256SUMS
+
+          gpg --batch --yes --pinentry-mode loopback \
+              --passphrase "$GPG_PASSPHRASE" \
+              --detach-sign --armor --output SHA256SUMS.gpg SHA256SUMS
+
+      - name: Publish GitHub Release Artifacts
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "${{ env.RELEASE_TAG }}"
+          body: ${{ inputs.release_notes }}
+          prerelease: false
+          files: |
+            bespokeos_${{ env.RELEASE_TAG }}.*
+            SHA256SUMS*

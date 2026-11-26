@@ -1,0 +1,84 @@
+name: Verify NixOS & systemd-sysupdate
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  sysupdate-e2e:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Enable unprivileged user namespaces
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_unconfined=0 || true
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          sudo sysctl -w kernel.unprivileged_userns_clone=1 || true
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            sandbox = false
+
+      - name: Setup QEMU & dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf openssh-client python3 zstd squashfs-tools
+
+          # Ensure KVM acceleration is accessible
+          test -e /dev/kvm && sudo chmod 666 /dev/kvm || true
+
+      - name: Prepare SSH Keys & CI Test Module
+        run: ./tests/prepare-ci.sh
+
+      - name: Build v1.0.0 Base Image
+        run: ./tests/build-base.sh
+
+      - name: Build v1.0.1 Update Payload & Start HTTP Server
+        run: ./tests/build-update.sh
+
+      - name: Boot v1.0.0 (UEFI), Verify systemd-repart & Run systemd-sysupdate
+        run: ./tests/boot-v1-and-update.sh
+
+      - name: Boot Updated Slot, Verify Blessing & Persistence, and Test Automatic Rollback
+        run: ./tests/boot-v2-and-rollback.sh
+
+      - name: Show serial logs on failure
+        if: failure()
+        run: ./tests/show-logs.sh
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sysupdate-e2e-debug
+          if-no-files-found: ignore
+          path: |
+            /tmp/guest-diag-boot1.txt
+            /tmp/guest-diag-boot2.txt
+            /tmp/serial-boot1.log
+            /tmp/serial-boot2.log
+            /tmp/image-inspect-v100.txt
+            /tmp/image-inspect-v101.txt
+            /tmp/guest-esp-v100.txt
+            /tmp/http-server.log
+
+      - name: Cleanup background processes
+        if: always()
+        run: |
+          pkill -f qemu-system-x86_64 || true
+          if [ -n "${HTTP_PID:-}" ]; then kill "$HTTP_PID" 2>/dev/null || true; fi
