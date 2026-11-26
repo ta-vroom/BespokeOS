@@ -3,7 +3,7 @@
 # To learn how to build appliance images and use systemd-repart and
 # systemd-sysupdate on them, look into ./system-configuration/
 {
-  description = "NixOS A/B appliance image example";
+  description = "Bespoke OS image";
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
@@ -111,6 +111,8 @@
                       hostPlatform = demoSystem;
                     };
                     system.image.version = "1";
+                    systemd.sysupdate.transfers."10-nix-store".Source.Path = "http://localhost/";
+                    systemd.sysupdate.transfers."20-boot-image".Source.Path = "http://localhost/";
                     services.lighttpd = {
                       enable = true;
                       document-root = inputs.self.packages.${system}.update-v2;
@@ -120,12 +122,17 @@
                 in
                 builtins.toString (
                   pkgs.writeShellScript "vm-demo" ''
+                    set -euo pipefail
+                    workdir=$(mktemp -d)
+                    trap 'rm -rf -- "$workdir"' EXIT
+                    ${pkgs.zstd}/bin/zstd -d ${image appl}/bespokeos_1.raw.zst -o "$workdir/bespokeos_1.raw"
+                    ${pkgs.qemu}/bin/qemu-img resize -f raw "$workdir/bespokeos_1.raw" +6G
                     ${
                       run-image.override {
                         targetArch = arch;
                         inherit OVMF;
                       }
-                    }/bin/run-image ${image appl}/appliance_1.raw
+                    }/bin/run-image "$workdir/bespokeos_1.raw"
                   ''
                 );
             };
